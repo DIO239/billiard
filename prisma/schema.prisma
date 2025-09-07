@@ -1,0 +1,224 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Product {
+  id             Int             @id @default(autoincrement())
+  title          String
+  description    String
+  price          Float
+  count          Int
+  visible        Boolean
+  characteristic Characteristic?
+  media          Media[]
+  type           Type            @relation(fields: [typeId], references: [id])
+  typeId         Int
+  items          CartItem[]
+  OrderItem      OrderItem[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("product")
+}
+
+model Type {
+  id       Int       @id @default(autoincrement())
+  value    String    @unique
+  name     String
+  products Product[]
+
+  @@map("type")
+}
+
+model Characteristic {
+  id        Int     @id @default(autoincrement())
+  height    Float?
+  weight    Float?
+  material  String?
+  wood      String?
+  master    String?
+  country   String?
+  parts     String?
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int     @unique @map("product_id")
+
+  @@map("characteristic")
+}
+
+model Media {
+  id        Int     @id @default(autoincrement())
+  type      String
+  name      String
+  publicId  String?
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int     @map("product_id")
+
+  @@map("media")
+}
+
+model User {
+  id Int @id @default(autoincrement())
+
+  fullName String
+  email    String    @unique
+  password String?
+  role     UserRole  @default(USER)
+  verified DateTime?
+
+  provider   String?
+  providerId String?
+
+  cart             Cart?
+  orders           Order[]
+  verificationCode VerificationCode?
+
+  accounts Account[]
+  sessions Session[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user")
+}
+
+model VerificationCode {
+  id Int @id @default(autoincrement())
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int  @unique
+
+  code String
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, code])
+  @@map("verification_code")
+}
+
+model Order {
+  id Int @id @default(autoincrement())
+
+  user   User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int?
+
+  status OrderStatus @default(PENDING)
+
+  orderNumber String @unique
+
+  trackingCode String?
+  paymentId String?
+
+  items OrderItem[]
+
+  totalAmount Int
+
+  fullName String
+  email    String
+  phone    String
+  address  String
+  comment  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("order")
+}
+
+model Cart {
+  id Int @id @default(autoincrement())
+
+  user   User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int?  @unique
+
+  items CartItem[]
+
+  sessionToken String?
+
+  totalAmount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("cart")
+}
+
+model CartItem {
+  id        Int     @id @default(autoincrement())
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cartId    Int
+  quantity  Int     @default(0)
+
+  @@map("cart_item")
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   Int
+  product   Product @relation(fields: [productId], references: [id])
+  productId Int
+  quantity  Int     @default(1)
+  price     Float
+
+  @@map("order_item")
+}
+
+enum OrderStatus {
+  PENDING
+  SUCCEEDED
+  CANCELLED
+  IN_TRANSIT
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model Account {
+  id                 Int       @id @default(autoincrement())
+  userId             Int
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?   @db.Text
+  access_token       String?   @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?   @db.Text
+  session_state      String?
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+  @@map("account")
+}
+
+model Session {
+  id           Int       @id @default(autoincrement())
+  sessionToken String    @unique
+  userId       Int
+  expires      DateTime
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("session")
+}
+
+model VerificationToken {
+  identifier String
+  token      String    @unique
+  expires    DateTime
+  @@unique([identifier, token])
+  @@map("verification_token")
+}
