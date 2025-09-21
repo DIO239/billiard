@@ -1,6 +1,6 @@
 import "./globals.scss";
 import { Montserrat } from "next/font/google";
-import Header from "@/components/Header/Header";
+import Header from "@/app/components/Header/Header";
 
 const montserrat = Montserrat({
   subsets: ["cyrillic"]
