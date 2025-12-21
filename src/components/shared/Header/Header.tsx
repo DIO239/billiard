@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import Link from "next/link";
 
 import { IoIosSearch, IoIosClose, IoLogoWhatsapp } from "react-icons/io";
 import { FaVk, FaTelegramPlane, FaPhoneAlt, FaEnvelope, FaShoppingCart } from "react-icons/fa";
@@ -50,7 +51,9 @@ export default function Header() {
         <header className='w-full pt-4 px-16'>
             <div className='flex gap-12'>
                    <div className='h-fit'>
-                    <Image priority src="/logos/floyd.png" alt="logo" width={80} height={94} className='object-contain object-top cursor-pointer' />
+                       <Link href="/">
+                           <Image priority src="/logos/floyd.png" alt="logo" width={80} height={94} className='object-contain object-top cursor-pointer' />
+                       </Link>
                    </div>
                    <div className='flex flex-col mt-3'>
                     <div className='relative w-90 h-10'>
@@ -108,7 +111,20 @@ export default function Header() {
                     '>
                         <FaTelegramPlane className='text-white' size={22}/>
                     </div>
-                    <IoLogoWhatsapp className='text-black cursor-pointer hover:text-[#25D366] transition-colors' size={43}/>
+                    <div className='
+                    bg-black
+                    w-10
+                    h-10
+                    rounded-full
+                    flex
+                    justify-center
+                    items-center
+                    cursor-pointer
+                    hover:bg-[#25D366] 
+                    transition-colors
+                    '>
+                        <IoLogoWhatsapp className='text-white' size={22}/>
+                    </div>
                    </div>
                    <div className='flex gap-5 mt-4 items-start gap-6'>
                     <div className='flex justify-center items-center gap-2'>
