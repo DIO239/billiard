@@ -9,11 +9,11 @@ export class TypeService {
     return prisma.type.findUnique({ where: { id } });
   }
 
-  static async create(data: { value: string; name: string }) {
+  static async create(data: { value: string; name: string; characteristicFields?: any }) {
     return prisma.type.create({ data });
   }
 
-  static async update(id: number, data: Partial<{ value: string; name: string }>) {
+  static async update(id: number, data: Partial<{ value: string; name: string; characteristicFields?: any }>) {
     return prisma.type.update({ where: { id }, data });
   }
 

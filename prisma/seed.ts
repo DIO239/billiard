@@ -8,12 +8,12 @@ async function main() {
   const cueType = await prisma.type.upsert({
     where: { value: 'cues' },
     update: {},
-    create: { value: 'cues', name: 'Кии' },
+    create: { value: 'cues', name: 'Бильярдный кий' },
   });
   const tableType = await prisma.type.upsert({
     where: { value: 'tables' },
     update: {},
-    create: { value: 'tables', name: 'Столы' },
+    create: { value: 'tables', name: 'Стол' },
   });
 
   // Seed администратора

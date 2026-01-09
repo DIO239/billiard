@@ -14,19 +14,37 @@ export class CharacteristicService {
 
   static async create(data: {
     productId: number;
-    height?: number | null;
-    weight?: number | null;
-    material?: string | null;
-    wood?: string | null;
-    master?: string | null;
-    country?: string | null;
-    parts?: string | null;
+    attributes?: Record<string, string | number> | null;
   }) {
-    return prisma.characteristic.create({ data });
+    try {
+      const createData: any = {
+        productId: data.productId,
+      };
+      
+      if (data.attributes && Object.keys(data.attributes).length > 0) {
+        createData.attributes = data.attributes;
+      } else {
+        createData.attributes = null;
+      }
+      
+      return await prisma.characteristic.create({ 
+        data: createData
+      });
+    } catch (error: any) {
+      console.error('Ошибка в CharacteristicService.create:', error);
+      throw error;
+    }
   }
 
-  static async update(id: number, data: Partial<{ height: number | null; weight: number | null; material: string | null; wood: string | null; master: string | null; country: string | null; parts: string | null }>) {
-    return prisma.characteristic.update({ where: { id }, data });
+  static async update(id: number, data: Partial<{ attributes: Record<string, string | number> | null }>) {
+    const updateData: any = {};
+    if (data.attributes !== undefined) {
+      updateData.attributes = data.attributes || null;
+    }
+    return prisma.characteristic.update({ 
+      where: { id }, 
+      data: updateData
+    });
   }
 
   static async remove(id: number) {

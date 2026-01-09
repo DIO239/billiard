@@ -31,4 +31,31 @@ export class UserService {
     });
     return true;
   }
+
+  static async setResetToken(userId: number, token: string, expires: Date) {
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        resetToken: token,
+        resetTokenExpires: expires,
+      },
+    });
+  }
+
+  static async findByResetToken(token: string) {
+    return prisma.user.findFirst({
+      where: { resetToken: token },
+    });
+  }
+
+  static async updatePasswordAndClearToken(userId: number, hashedPassword: string) {
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpires: null,
+      },
+    });
+  }
 }

@@ -12,11 +12,11 @@ export class MediaService {
     return prisma.media.findUnique({ where: { id } });
   }
 
-  static async create(data: { productId: number; type: string; name: string; publicId?: string | null }) {
+  static async create(data: { productId: number; type: string; name: string; publicId?: string | null; showOnMain?: boolean }) {
     return prisma.media.create({ data });
   }
 
-  static async createMany(items: Array<{ productId: number; type: string; name: string; publicId?: string | null }>) {
+  static async createMany(items: Array<{ productId: number; type: string; name: string; publicId?: string | null; showOnMain?: boolean }>) {
     if (!items || items.length === 0) return { count: 0 };
     return prisma.media.createMany({ data: items });
   }
@@ -25,7 +25,7 @@ export class MediaService {
     return prisma.media.update({ where: { id }, data: { publicId } });
   }
 
-  static async update(id: number, data: Partial<{ type: string; name: string; publicId: string | null }>) {
+  static async update(id: number, data: Partial<{ type: string; name: string; publicId: string | null; showOnMain: boolean }>) {
     return prisma.media.update({ where: { id }, data });
   }
 

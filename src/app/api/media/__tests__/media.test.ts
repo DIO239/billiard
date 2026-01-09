@@ -1,6 +1,4 @@
 import { GET as listHandler } from '../../media/route';
-import { POST as signHandler } from '../../media/sign/route';
-import { POST as confirmHandler } from '../../media/confirm/route';
 import { GET as getHandler, PATCH as updateHandler, DELETE as deleteHandler } from '../../media/[id]/route';
 import { POST as deleteManyHandler } from '../../media/delete-many/route';
 import { MediaService } from '@/services/media.service';
@@ -8,12 +6,13 @@ import jwt from 'jsonwebtoken';
 
 jest.mock('@/services/media.service');
 jest.mock('jsonwebtoken');
-jest.mock('@/services/cloudinary', () => ({
-  __esModule: true,
-  cld: {
-    utils: { api_sign_request: jest.fn(() => 'signature') },
-    uploader: { destroy: jest.fn().mockResolvedValue({ result: 'ok' }) },
-  },
+jest.mock('fs/promises', () => ({
+  unlink: jest.fn().mockResolvedValue(undefined),
+  writeFile: jest.fn().mockResolvedValue(undefined),
+  mkdir: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('fs', () => ({
+  existsSync: jest.fn().mockReturnValue(true),
 }));
 
 describe('Media API', () => {
@@ -26,7 +25,6 @@ describe('Media API', () => {
     (MediaService.update as jest.Mock).mockResolvedValue({ id: 1 });
     (MediaService.remove as jest.Mock).mockResolvedValue(undefined);
     (MediaService.removeManyByIds as jest.Mock).mockResolvedValue({ count: 1 });
-    (MediaService.removeManyByPublicIds as jest.Mock).mockResolvedValue({ count: 1 });
     (jwt.verify as jest.Mock).mockReturnValue({ id: 1, email: 'a@e.com', role: 'ADMIN' });
   });
 
@@ -35,52 +33,6 @@ describe('Media API', () => {
     const res = await listHandler(req);
     expect(res.status).toBe(200);
     expect(MediaService.list).toHaveBeenCalledWith(10);
-  });
-
-  // sign
-  it('POST /api/media/sign should return 401 without cookie', async () => {
-    const r = await signHandler(new Request('http://localhost/api/media/sign', { method: 'POST', body: JSON.stringify({ productId: 1, kind: 'image' }) }) as any);
-    expect(r.status).toBe(401);
-  });
-
-  it('POST /api/media/sign should return 403 for non-admin', async () => {
-    (jwt.verify as jest.Mock).mockReturnValue({ id: 2, email: 'u@e.com', role: 'USER' });
-    const r = await signHandler(new Request('http://localhost/api/media/sign', { method: 'POST', headers: { cookie: 'token=abc' }, body: JSON.stringify({ productId: 1, kind: 'image' }) }) as any);
-    expect(r.status).toBe(403);
-  });
-
-  it('POST /api/media/sign should return 400 on invalid kind', async () => {
-    const r = await signHandler(new Request('http://localhost/api/media/sign', { method: 'POST', headers: { cookie: 'token=abc' }, body: JSON.stringify({ productId: 1, kind: 'doc' }) }) as any);
-    expect(r.status).toBe(400);
-  });
-
-  it('POST /api/media/sign should return 200 for valid image', async () => {
-    const r = await signHandler(new Request('http://localhost/api/media/sign', { method: 'POST', headers: { cookie: 'token=abc' }, body: JSON.stringify({ productId: 1, kind: 'image' }) }) as any);
-    expect(r.status).toBe(200);
-  });
-
-  // confirm single/many
-  it('POST /api/media/confirm should return 400 on missing fields', async () => {
-    const r = await confirmHandler(new Request('http://localhost/api/media/confirm', { method: 'POST', headers: { cookie: 'token=abc' }, body: JSON.stringify({}) }) as any);
-    expect(r.status).toBe(400);
-  });
-
-  it('POST /api/media/confirm should create single with public_id', async () => {
-    const body = { productId: 1, secure_url: 'https://c.example/img.jpg', resource_type: 'image', public_id: 'products/1/abc' };
-    const r = await confirmHandler(new Request('http://localhost/api/media/confirm', { method: 'POST', headers: { cookie: 'token=abc' }, body: JSON.stringify(body) }) as any);
-    expect(r.status).toBe(201);
-    expect(MediaService.create).toHaveBeenCalledWith({ productId: 1, type: 'image', name: 'https://c.example/img.jpg', publicId: 'products/1/abc' });
-  });
-
-  it('POST /api/media/confirm should create many and return count', async () => {
-    const arr = [
-      { productId: 1, secure_url: 'https://c.example/a.jpg', resource_type: 'image', public_id: 'products/1/a' },
-      { productId: 1, secure_url: 'https://c.example/b.mp4', resource_type: 'video', public_id: 'products/1/b' },
-    ];
-    const r = await confirmHandler(new Request('http://localhost/api/media/confirm', { method: 'POST', headers: { cookie: 'token=abc' }, body: JSON.stringify(arr) }) as any);
-    expect(r.status).toBe(201);
-    const json = await r.json();
-    expect(json.count).toBeDefined();
   });
 
   // CRUD by id
@@ -128,8 +80,9 @@ describe('Media API', () => {
     expect(r.status).toBe(400);
   });
 
-  it('POST /api/media/delete-many should delete by ids and publicIds', async () => {
-    const arr = [{ id: 1 }, { publicId: 'products/1/a' }];
+  it('POST /api/media/delete-many should delete by ids', async () => {
+    (MediaService.getById as jest.Mock).mockResolvedValueOnce({ id: 1, name: '/static/products/1/file.jpg' });
+    const arr = [{ id: 1 }];
     const r = await deleteManyHandler(new Request('http://localhost/api/media/delete-many', { method: 'POST', headers: { cookie: 'token=abc' }, body: JSON.stringify(arr) }) as any);
     expect(r.status).toBe(200);
     const json = await r.json();

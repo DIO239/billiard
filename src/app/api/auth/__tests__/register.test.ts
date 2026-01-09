@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { createServer } from 'http';
-import { POST as registerHandler } from '../register';
+import { POST as registerHandler } from '../register/route';
 import { UserService } from '@/services/user.service';
 import nodemailer from 'nodemailer';
 

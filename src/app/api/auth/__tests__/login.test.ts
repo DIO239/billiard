@@ -1,4 +1,4 @@
-import { POST as loginHandler } from '../login';
+import { POST as loginHandler } from '../login/route';
 import { UserService } from '@/services/user.service';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';

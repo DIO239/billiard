@@ -4,7 +4,7 @@ import { OrderService } from '@/services/order.service';
 import { orderSchema } from '@/validation/order';
 
 export const GET = errorHandler(async (req: Request) => {
-  const orders = await OrderService.getAll();
+  const orders = await OrderService.list();
   return new Response(JSON.stringify(orders), { status: 200 });
 });
 

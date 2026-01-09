@@ -1,13 +1,16 @@
 "use client";
 
+import axios from "axios";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { toast } from "sonner"
+import { useAuth } from "@/contexts/AuthContext"
 
 
 const formLoginSchema = z.object({
@@ -16,6 +19,8 @@ const formLoginSchema = z.object({
 });
 
 export default function Login() {
+    const router = useRouter();
+    const { refreshAuth } = useAuth();
     const formLogin = useForm<z.infer<typeof formLoginSchema>>({
         resolver: zodResolver(formLoginSchema),
         defaultValues: {
@@ -45,7 +50,7 @@ export default function Login() {
                     <Form {...formLogin}>
                         <form 
                         className="flex flex-col gap-4"
-                        onSubmit={formLogin.handleSubmit(onSubmitLogin)}>
+                        onSubmit={formLogin.handleSubmit((values) => onSubmitLogin(values, refreshAuth, router))}>
                             <FormField
                                 control={formLogin.control}
                                 name="email"
@@ -83,7 +88,14 @@ export default function Login() {
     );
 }
 
-function onSubmitLogin(values: z.infer<typeof formLoginSchema>) {
-    console.log(values);
-    toast.success("Вы успешно вошли в систему");
+function onSubmitLogin(values: z.infer<typeof formLoginSchema>, refreshAuth: () => Promise<void>, router: ReturnType<typeof useRouter>) {
+    axios.post('/api/auth/login', values).then(async () => {
+        toast.success('Успешная авторизация');
+        // Обновляем состояние авторизации
+        await refreshAuth();
+        // Перенаправляем на главную страницу
+        router.push('/');
+    }).catch((error) => {
+        toast.error(error.response?.data?.error || 'Ошибка авторизации');
+    });
 }

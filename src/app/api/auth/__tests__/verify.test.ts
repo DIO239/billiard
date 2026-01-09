@@ -1,4 +1,4 @@
-import { POST as verifyHandler } from '../verify';
+import { POST as verifyHandler } from '../verify/route';
 import { UserService } from '@/services/user.service';
 
 jest.mock('@/services/user.service');

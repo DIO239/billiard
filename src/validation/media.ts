@@ -4,6 +4,7 @@ export const mediaCreateSchema = z.object({
   productId: z.number().int().positive(),
   type: z.string().min(1),
   name: z.string().min(1),
+  showOnMain: z.boolean().optional(),
 });
 
 export const mediaUpdateSchema = mediaCreateSchema.partial().omit({ productId: true });

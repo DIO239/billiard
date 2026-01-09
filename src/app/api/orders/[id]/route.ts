@@ -17,6 +17,6 @@ export const PATCH = errorHandler(async (req: Request, { params }: any) => {
 });
 
 export const DELETE = errorHandler(async (req: Request, { params }: any) => {
-  await OrderService.delete(Number(params.id));
+  await OrderService.remove(Number(params.id));
   return new Response(null, { status: 204 });
 });

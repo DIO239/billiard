@@ -3,16 +3,19 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from "next/link";
+import { usePathname } from 'next/navigation';
 
-import { IoIosSearch, IoIosClose, IoLogoWhatsapp } from "react-icons/io";
-import { FaVk, FaTelegramPlane, FaPhoneAlt, FaEnvelope, FaShoppingCart } from "react-icons/fa";
+import { IoIosSearch, IoIosClose, IoLogoWhatsapp, IoIosLogIn, IoIosLogOut } from "react-icons/io";
+import { FaVk, FaTelegramPlane, FaPhoneAlt, FaEnvelope, FaShoppingCart, FaUser } from "react-icons/fa";
 import axios from 'axios';
 
 import { useCartStore } from '@/store/cart';
+import { useAuth } from '@/contexts/AuthContext';
 import { Input } from "@/components/ui/input";
 import { IProduct } from '@/types/product';
 import { IProductResponse } from '@/types/product-response';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 export default function Header() {
     const [search, setSearch] = useState('');
@@ -46,15 +49,20 @@ export default function Header() {
     }, [search]);
 
     const count = useCartStore((state) => state.items.length);
+    const { isAuthenticated, isLoading, isAdmin, logout } = useAuth();
+    const pathname = usePathname();
+    const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/admin';
+    const isUserPage = pathname === '/user';
 
     return (
-        <header className='w-full pt-4 px-16'>
-            <div className='flex gap-12'>
+        <header className='w-full pt-4 px-5'>
+            <div className='flex gap-9'>
                    <div className='h-fit'>
                        <Link href="/">
                            <Image priority src="/logos/floyd.png" alt="logo" width={80} height={94} className='object-contain object-top cursor-pointer' />
                        </Link>
                    </div>
+                   {!isAuthPage && (
                    <div className='flex flex-col mt-3'>
                     <div className='relative w-90 h-10'>
                         <Input className={
@@ -84,6 +92,8 @@ export default function Header() {
                         </div>
                     )}
                    </div>
+                   )}
+                   {!isAuthPage && (
                    <div className='flex gap-5 mt-3 items-start'>
                     <div className='
                     bg-black 
@@ -126,26 +136,66 @@ export default function Header() {
                         <IoLogoWhatsapp className='text-white' size={22}/>
                     </div>
                    </div>
+                   )}
+                   {!isAuthPage && (
                    <div className='flex gap-5 mt-4 items-start gap-6'>
                     <div className='flex justify-center items-center gap-2'>
-                        <FaPhoneAlt size={32}/>
+                        <FaPhoneAlt size={28}/>
                         <a className='text-lg' href='tel:+79999999999'>+7-000-000-00-00</a>
                     </div>
                     <div className='flex justify-center items-center gap-2'>
-                        <FaEnvelope size={32}/>
+                        <FaEnvelope size={28}/>
                         <a className='text-lg' href='mailto:test@test.com'>floydbilliard@example.com</a>
                     </div>
                    </div>
+                   )}
+                   {!isAuthPage && (
                    <div className='mt-3 relative w-15'>
-                    <div className='bg-[#5F0707D9] rounded-full w-10 h-10 flex justify-center items-center cursor-pointer'>
-                        <FaShoppingCart className='text-white' size={22}/>
-                    </div>
-                    {count > 0 && (
-                        <Badge className='absolute top-[-10px] right-0 h-5 min-w-5 rounded-full px-1 tabular-nums' variant="outline">
-                            {count}
-                        </Badge>
+                    <Link href="/cart">
+                        <div className='bg-[#5F0707D9] rounded-full w-10 h-10 flex justify-center items-center cursor-pointer'>
+                            <FaShoppingCart className='text-white' size={22}/>
+                        </div>
+                        {count > 0 && (
+                            <Badge className='absolute top-[-10px] right-0 h-5 min-w-5 rounded-full px-1 tabular-nums' variant="outline">
+                                {count}
+                            </Badge>
+                        )}
+                    </Link>
+                   </div>
+                   )}
+                   {!isLoading && !isAuthPage && (
+                   <div className='mt-3 flex gap-3 ml-auto'>
+                    {isAuthenticated ? (
+                        <div className='flex gap-3'>
+                            <div className='flex gap-2'>
+                                <Link href='/user'>
+                                    <div className='bg-[#5F0707D9] rounded-full w-10 h-10 flex justify-center items-center cursor-pointer'>
+                                        <FaUser className='text-white' size={18}/>
+                                    </div>
+                                </Link>
+                            </div>
+                            {isAdmin && isUserPage && (
+                                <Link href="/admin">
+                                    <Button disabled={isLoading} variant="outline" size="sm">Админ</Button>
+                                </Link>
+                            )}
+                            {isUserPage && (
+                                <Button disabled={isLoading} variant="outline" size="sm" onClick={logout}>
+                                    <IoIosLogOut size={18}/>
+                                    Выйти
+                                </Button>
+                            )}
+                        </div>
+                    ) : (
+                        <Link href="/login">
+                            <Button disabled={isLoading} variant="outline" size="sm" className='flex items-center gap-2'>
+                                <IoIosLogIn size={18}/>
+                                Войти
+                            </Button>
+                        </Link>
                     )}
                    </div>
+                   )}
             </div>
         </header>
     );

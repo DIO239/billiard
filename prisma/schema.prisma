@@ -33,23 +33,18 @@ model Product {
 }
 
 model Type {
-  id       Int       @id @default(autoincrement())
-  value    String    @unique
-  name     String
-  products Product[]
+  id                 Int       @id @default(autoincrement())
+  value              String    @unique
+  name               String
+  characteristicFields Json?   // Массив полей характеристик для этого типа товара
+  products           Product[]
 
   @@map("type")
 }
 
 model Characteristic {
   id        Int     @id @default(autoincrement())
-  height    Float?
-  weight    Float?
-  material  String?
-  wood      String?
-  master    String?
-  country   String?
-  parts     String?
+  attributes Json?  // Гибкие характеристики в формате JSON
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId Int     @unique @map("product_id")
 
@@ -61,6 +56,7 @@ model Media {
   type      String
   name      String
   publicId  String?
+  showOnMain Boolean @default(true) // Показывать на главной странице
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId Int     @map("product_id")
 
@@ -78,6 +74,9 @@ model User {
 
   provider   String?
   providerId String?
+
+  resetToken        String?
+  resetTokenExpires DateTime?
 
   cart             Cart?
   orders           Order[]

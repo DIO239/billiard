@@ -1,4 +1,4 @@
-import { POST as logoutHandler } from '../logout';
+import { POST as logoutHandler } from '../logout/route';
 
 describe('POST /api/auth/logout', () => {
   it('should clear auth cookie', async () => {
