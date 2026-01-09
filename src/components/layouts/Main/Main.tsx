@@ -2,7 +2,6 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
 
-import { IProductResponse } from '@/types/product-response';
 import { IProduct } from '@/types/product';
 import Card from "../../shared/Card/Card";
 import { Spinner } from '@/components/ui/spinner';
@@ -12,15 +11,41 @@ export default function MainPage() {
     const [loading, setLoading] = useState(true);
     
     useEffect(() => {
-        setLoading(true);
-        axios.get('/api/products')
-            .then((res: IProductResponse) => setProducts(res.data.products))
-            .catch((error) => {
-                console.error('Ошибка загрузки товаров:', error);
-            })
-            .finally(() => {
-                setLoading(false);
-            });
+        let isMounted = true;
+        let cancelled = false;
+        
+        const loadProducts = async () => {
+            if (cancelled) return;
+            
+            setLoading(true);
+            try {
+                const res = await axios.get<{ products: IProduct[] }>('/api/products', { 
+                    params: { 
+                        take: 100,
+                        // Явно не передаем search, чтобы не влиять на основной список
+                    } 
+                });
+                
+                if (isMounted && !cancelled) {
+                    setProducts(res.data.products);
+                }
+            } catch (error) {
+                if (isMounted && !cancelled) {
+                    console.error('Ошибка загрузки товаров:', error);
+                }
+            } finally {
+                if (isMounted && !cancelled) {
+                    setLoading(false);
+                }
+            }
+        };
+        
+        loadProducts();
+        
+        return () => {
+            isMounted = false;
+            cancelled = true;
+        };
     }, []);
     
     if (loading) {
@@ -32,7 +57,7 @@ export default function MainPage() {
     }
     
     return(
-        <div className="flex gap-20">
+        <div className="grid grid-cols-5 gap-20">
             {products.filter(product => product.visible).map(product => (
                 <Card key={product.id} {...product} />
             ))}

@@ -13,6 +13,7 @@ export type CreateOrderInput = {
   phone: string;
   address: string;
   comment?: string | null;
+  deliveryMethodId?: number | null;
 };
 
 export type UpdateOrderInput = Partial<{
@@ -24,6 +25,7 @@ export type UpdateOrderInput = Partial<{
   phone: string;
   address: string;
   comment: string | null;
+  deliveryMethodId: number | null;
 }>;
 
 function generateOrderNumber(): string {
@@ -42,7 +44,11 @@ export class OrderService {
       where: {
         AND: [status ? { status } : {}, userId ? { userId } : {}],
       },
-      include: { items: { include: { product: true } }, user: true },
+      include: { 
+        items: { include: { product: true } }, 
+        user: true,
+        deliveryMethod: true,
+      },
       skip,
       take,
       orderBy: { createdAt: 'desc' },
@@ -50,7 +56,14 @@ export class OrderService {
   }
 
   static async getById(id: number) {
-    return prisma.order.findUnique({ where: { id }, include: { items: { include: { product: true } }, user: true } });
+    return prisma.order.findUnique({ 
+      where: { id }, 
+      include: { 
+        items: { include: { product: true } }, 
+        user: true,
+        deliveryMethod: true,
+      } 
+    });
   }
 
   static async create(input: CreateOrderInput) {
@@ -78,6 +91,7 @@ export class OrderService {
         phone: input.phone,
         address: input.address,
         comment: input.comment ?? undefined,
+        deliveryMethodId: input.deliveryMethodId ?? undefined,
         items: {
           create: input.items.map(it => ({
             productId: it.productId,
@@ -86,7 +100,10 @@ export class OrderService {
           })),
         },
       },
-      include: { items: { include: { product: true } } },
+      include: { 
+        items: { include: { product: true } },
+        deliveryMethod: true,
+      },
     });
     return created;
   }

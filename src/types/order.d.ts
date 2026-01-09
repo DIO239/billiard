@@ -21,4 +21,10 @@ export interface Order {
   orderNumber: string;
   trackingCode?: string | null;
   paymentId?: string | null;
+  deliveryMethodId?: number | null;
+  deliveryMethod?: {
+    id: number;
+    name: string;
+    description?: string | null;
+  } | null;
 }

@@ -28,6 +28,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Order } from '@/types/order.d';
+import { IDeliveryMethod } from '@/types/delivery-method';
 
 const statuses = [
   { value: 'PENDING', label: 'В ожидании' },
@@ -46,6 +47,7 @@ export type OrderDialogProps = {
 export function OrderDialog({ open, onOpenChange, order, onSuccess }: OrderDialogProps) {
   const isEditMode = !!order;
   const [loading, setLoading] = useState(false);
+  const [deliveryMethods, setDeliveryMethods] = useState<IDeliveryMethod[]>([]);
 
   const orderSchema = z.object({
     fullName: z.string().min(1, 'ФИО обязательно'),
@@ -55,6 +57,7 @@ export function OrderDialog({ open, onOpenChange, order, onSuccess }: OrderDialo
     status: z.enum(['PENDING', 'SUCCEEDED', 'CANCELLED', 'IN_TRANSIT']),
     comment: z.string().optional(),
     totalAmount: z.number().nonnegative(),
+    deliveryMethodId: z.number().nullable().optional(),
   });
 
   const form = useForm<z.infer<typeof orderSchema>>({
@@ -68,8 +71,13 @@ export function OrderDialog({ open, onOpenChange, order, onSuccess }: OrderDialo
       status: order?.status || 'PENDING',
       comment: order?.comment || '',
       totalAmount: order?.totalAmount || 0,
+      deliveryMethodId: order?.deliveryMethodId || null,
     },
   });
+
+  useEffect(() => {
+    loadDeliveryMethods();
+  }, []);
 
   useEffect(() => {
     if (order && open) {
@@ -81,9 +89,19 @@ export function OrderDialog({ open, onOpenChange, order, onSuccess }: OrderDialo
         status: order.status || 'PENDING',
         comment: order.comment || '',
         totalAmount: order.totalAmount || 0,
+        deliveryMethodId: order.deliveryMethodId || null,
       });
     }
-  }, [order, open]);
+  }, [order, open, form]);
+
+  const loadDeliveryMethods = async () => {
+    try {
+      const response = await axios.get('/api/delivery-methods');
+      setDeliveryMethods(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки способов доставки:', error);
+    }
+  };
 
   const onSubmit = async (data: z.infer<typeof orderSchema>) => {
     if (!order) return;
@@ -160,6 +178,33 @@ export function OrderDialog({ open, onOpenChange, order, onSuccess }: OrderDialo
                       <FormLabel>Адрес доставки</FormLabel>
                       <FormControl>
                         <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="deliveryMethodId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Способ доставки</FormLabel>
+                      <FormControl>
+                        <Select 
+                          value={field.value?.toString() || undefined} 
+                          onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Выберите способ доставки" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {deliveryMethods.map((method) => (
+                              <SelectItem key={method.id} value={method.id.toString()}>
+                                {method.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -34,11 +34,12 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { productCreateSchema, productUpdateSchema, ProductResponse } from '@/validation/product';
 import { IType } from '@/types/types';
 import { IMedia } from '@/types/media';
-import { ICharacteristic } from '@/types/characteristic';
-import { X, Play } from 'lucide-react';
+import { X } from 'lucide-react';
+import { FaFileVideo } from "react-icons/fa";
 
 type ProductDialogProps = {
   open: boolean;
@@ -87,7 +88,7 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
       // Загружаем настройки показа медиа на главной
       const showOnMainMap: Record<number, boolean> = {};
       product.media?.forEach(media => {
-        showOnMainMap[media.id] = media.showOnMain !== false; // по умолчанию true
+        showOnMainMap[media.id] = media.showOnMain === true; // по умолчанию false
       });
       setMediaShowOnMain(showOnMainMap);
       // Загружаем характеристики продукта
@@ -111,6 +112,10 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
     }
     setSelectedFiles([]);
     setPendingRemoveMedia([]);
+    // Очищаем input файла при открытии/закрытии диалога
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   }, [product, open, form]);
 
   // Сброс attributes при смене типа товара
@@ -123,13 +128,21 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
     }
   }, [selectedTypeId, product]);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    setSelectedFiles((prev) => [...prev, ...files]);
+    if (files.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...files]);
+    }
   };
 
   const removeSelectedFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    // Очищаем значение input при удалении файла
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   // Новые функции для «удаления»
@@ -252,12 +265,29 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
       }
 
       // Обновляем настройки показа медиа на главной странице
+      // Обновляем только те медиа, которые не помечены на удаление и существуют в existingMedia
       if (Object.keys(mediaShowOnMain).length > 0) {
         try {
-          const updatePromises = Object.entries(mediaShowOnMain).map(([mediaId, showOnMain]) =>
-            axios.patch(`/api/media/${mediaId}`, { showOnMain })
-          );
-          await Promise.all(updatePromises);
+          const existingMediaIds = new Set(existingMedia.map(m => m.id));
+          const updatePromises = Object.entries(mediaShowOnMain)
+            .filter(([mediaId]) => {
+              const id = Number(mediaId);
+              return !isNaN(id) && !pendingRemoveMedia.includes(id) && existingMediaIds.has(id);
+            })
+            .map(async ([mediaId, showOnMain]) => {
+              try {
+                const id = Number(mediaId);
+                const showOnMainValue = Boolean(showOnMain);
+                console.log(`Обновление медиа ${id}: showOnMain=${showOnMainValue}`);
+                await axios.patch(`/api/media/${id}`, { showOnMain: showOnMainValue });
+              } catch (error: any) {
+                console.error(`Ошибка обновления медиа ${mediaId}:`, error.response?.data || error.message);
+                // Продолжаем выполнение, не прерываем весь процесс
+              }
+            });
+          if (updatePromises.length > 0) {
+            await Promise.all(updatePromises);
+          }
         } catch (error: any) {
           console.error('Ошибка обновления настроек медиа:', error);
           // Не прерываем сохранение, если не удалось обновить настройки медиа
@@ -270,6 +300,11 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
           const uploadPromises = selectedFiles.map((file) => uploadFile(file, productId));
           await Promise.all(uploadPromises);
           toast.success(`Загружено ${selectedFiles.length} файл(ов)`);
+          // Очищаем выбранные файлы и input после успешной загрузки
+          setSelectedFiles([]);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
         } catch (uploadError: any) {
           // Ошибка загрузки медиа не должна прерывать сохранение продукта
           const errorMessage = uploadError.message || 'Ошибка загрузки медиа файлов';
@@ -282,6 +317,10 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
       form.reset();
       setSelectedFiles([]);
       setPendingRemoveMedia([]);
+      // Очищаем input файла после успешного сохранения
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       onSuccess();
     } catch (error: any) {
       // Правильно извлекаем сообщение об ошибке
@@ -343,7 +382,12 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
                 <FormItem>
                   <FormLabel>Описание</FormLabel>
                   <FormControl>
-                    <Input placeholder="Введите описание товара" {...field} />
+                    <textarea
+                      placeholder="Введите описание товара"
+                      {...field}
+                      rows={4}
+                      className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -359,10 +403,21 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
                     <FormControl>
                       <Input
                         type="number"
+                        min="0"
                         step="0.01"
                         placeholder="0.00"
                         {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || (!value.includes('-') && parseFloat(value) >= 0)) {
+                            field.onChange(value === '' ? '' : parseFloat(value) || 0);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+                            e.preventDefault();
+                          }
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
@@ -378,9 +433,20 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
                     <FormControl>
                       <Input
                         type="number"
+                        min="0"
                         placeholder="0"
                         {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || (!value.includes('-') && parseInt(value) >= 0)) {
+                            field.onChange(value === '' ? '' : parseInt(value) || 0);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '.') {
+                            e.preventDefault();
+                          }
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
@@ -445,6 +511,7 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
                       <FormLabel className="text-sm">{field.label}</FormLabel>
                       <Input
                         type={field.type === 'number' ? 'number' : 'text'}
+                        min={field.type === 'number' ? '0' : undefined}
                         step={field.type === 'number' ? '0.1' : undefined}
                         placeholder={field.placeholder || `Введите ${field.label.toLowerCase()}`}
                         value={field.type === 'number' 
@@ -453,11 +520,15 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
                         onChange={(e) => {
                           const newAttributes = { ...attributes };
                           if (field.type === 'number') {
-                            const numValue = e.target.value ? parseFloat(e.target.value) : undefined;
-                            if (numValue !== undefined && !isNaN(numValue)) {
-                              newAttributes[field.key] = numValue;
-                            } else {
-                              delete newAttributes[field.key];
+                            const value = e.target.value;
+                            if (value === '' || (!value.includes('-') && parseFloat(value) >= 0)) {
+                              const numValue = value ? parseFloat(value) : undefined;
+                              if (numValue !== undefined && !isNaN(numValue)) {
+                                newAttributes[field.key] = numValue;
+                              } else {
+                                delete newAttributes[field.key];
+                              }
+                              setAttributes(newAttributes);
                             }
                           } else {
                             if (e.target.value) {
@@ -465,8 +536,15 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
                             } else {
                               delete newAttributes[field.key];
                             }
+                            setAttributes(newAttributes);
                           }
-                          setAttributes(newAttributes);
+                        }}
+                        onKeyDown={(e) => {
+                          if (field.type === 'number') {
+                            if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+                              e.preventDefault();
+                            }
+                          }
                         }}
                       />
                     </div>
@@ -501,7 +579,7 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
                     })
                     .map((media) => {
                     const marked = pendingRemoveMedia.includes(media.id);
-                    const showOnMain = mediaShowOnMain[media.id] !== false; // по умолчанию true
+                    const showOnMain = mediaShowOnMain[media.id] === true; // по умолчанию false
                     return (
                       <div
                         key={media.id}
@@ -525,7 +603,7 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
                               preload="metadata"
                             />
                             <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-md">
-                              <Play className="h-8 w-8 text-white" fill="white" />
+                              <FaFileVideo className="h-8 w-8 text-white" fill="white" />
                             </div>
                           </div>
                         )}
@@ -533,7 +611,8 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
                           <Button
                             type="button"
                             size="sm"
-                            className="absolute top-1 right-1 opacity-100 transition-opacity p-1 h-6 w-24 bg-yellow-200 text-xs"
+                            variant="secondary"
+                            className="absolute top-1 right-1 opacity-100 transition-opacity p-1 h-6 w-24 text-xs"
                             onClick={() => unmarkMediaForRemove(media.id)}
                           >
                             Отменить
@@ -550,16 +629,30 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
                               <X className="h-4 w-4" />
                             </Button>
                             <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Checkbox
-                                checked={showOnMain}
-                                onCheckedChange={(checked) => {
-                                  setMediaShowOnMain(prev => ({
-                                    ...prev,
-                                    [media.id]: checked === true
-                                  }));
-                                }}
-                                className="bg-white"
-                              />
+                              <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-sm rounded-md px-2 py-1 shadow-sm border border-gray-200">
+                                <Checkbox
+                                  checked={showOnMain}
+                                  onCheckedChange={(checked) => {
+                                    setMediaShowOnMain(prev => ({
+                                      ...prev,
+                                      [media.id]: checked === true
+                                    }));
+                                  }}
+                                  className="bg-white"
+                                />
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-1 cursor-help">
+                                      <span className="text-xs text-gray-600 font-medium">Главная</span>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right" className="max-w-[180px]">
+                                    <p className="text-xs text-gray-700 leading-relaxed">
+                                      Показывать на главной странице
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
                             </div>
                             {showOnMain && (
                               <div className="absolute top-1 left-1 bg-green-500 text-white text-xs px-1 rounded">
@@ -604,6 +697,7 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
               )}
               {/* Поле для выбора файлов */}
               <Input
+                ref={fileInputRef}
                 type="file"
                 multiple
                 accept="image/*,video/*"

@@ -16,6 +16,11 @@ export const PATCH = errorHandler(async (req: Request, { params }: { params: { i
   isAdmin(req);
   const id = Number(params.id);
   if (Number.isNaN(id)) throw { status: 400, message: 'Некорректный id' };
+  
+  // Проверяем существование медиа
+  const existingMedia = await MediaService.getById(id);
+  if (!existingMedia) throw { status: 404, message: 'Медиа не найдено' };
+  
   const body = await req.json();
   const data = validate(mediaUpdateSchema, body);
   const updated = await MediaService.update(id, data);

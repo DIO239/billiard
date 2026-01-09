@@ -22,8 +22,15 @@ export function getUserFromRequest(req: Request): JwtUserPayload {
     const token = cookies[COOKIE_NAME];
     if (!token) return null;
     const decoded = jwt.verify(token, JWT_SECRET) as any;
-    return { id: decoded.id, email: decoded.email, role: decoded.role };
-  } catch {
+    // Убеждаемся, что id - это число
+    const userId = typeof decoded.id === 'string' ? parseInt(decoded.id, 10) : decoded.id;
+    if (isNaN(userId)) {
+      console.error('Invalid user ID in JWT token:', decoded.id);
+      return null;
+    }
+    return { id: userId, email: decoded.email, role: decoded.role };
+  } catch (error) {
+    console.error('Error decoding JWT token:', error);
     return null;
   }
 }

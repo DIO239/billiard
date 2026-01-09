@@ -56,7 +56,7 @@ model Media {
   type      String
   name      String
   publicId  String?
-  showOnMain Boolean @default(true) // Показывать на главной странице
+  showOnMain Boolean @default(false) // Показывать на главной странице
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId Int     @map("product_id")
 
@@ -117,6 +117,9 @@ model Order {
 
   trackingCode String?
   paymentId String?
+
+  deliveryMethod   DeliveryMethod? @relation(fields: [deliveryMethodId], references: [id], onDelete: SetNull)
+  deliveryMethodId Int?
 
   items OrderItem[]
 
@@ -220,4 +223,16 @@ model VerificationToken {
   expires    DateTime
   @@unique([identifier, token])
   @@map("verification_token")
+}
+
+model DeliveryMethod {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  active      Boolean  @default(true)
+  orders      Order[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("delivery_method")
 }

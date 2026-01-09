@@ -2,10 +2,11 @@ import { IProduct } from '@/types/product';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import 'swiper/css';
 import BuyButton from '@/components/ui/buyButton';
+import Link from 'next/link';
 
 export default function Card(props: IProduct) {
     // Фильтруем медиа, которые должны показываться на главной странице
-    const visibleMedia = props.media.filter(m => m.showOnMain !== false);
+    const visibleMedia = props.media.filter(m => m.showOnMain === true);
     
     // Разделяем медиа на видео и картинки
     const videos = visibleMedia.filter(m => m.type === 'video');
@@ -16,7 +17,7 @@ export default function Card(props: IProduct) {
 
     return (
         <div className="flex flex-col w-[215px] gap-6">
-            <div className="w-[215px] h-[395px]">
+            <Link href={`/product/${props.id}`} className="w-[215px] h-[395px] block">
                 <Swiper 
                     spaceBetween={10} 
                     slidesPerView={1} 
@@ -52,13 +53,13 @@ export default function Card(props: IProduct) {
                         </SwiperSlide>
                     ))}
                 </Swiper>
-            </div>
-            <div className="flex flex-col gap-2">
-                <div className='flex flex-col'>
-                    <p className="text-sm text-gray-500">{props.type.name}</p>
-                    <h3 className="text-lg font-semibold">{props.title}</h3>
-                </div>
-                <BuyButton price={props.price} />
+            </Link>
+            <div className="flex flex-col gap-2 w-[215px]">
+                <Link href={`/product/${props.id}`} className="flex flex-col hover:opacity-80 transition-opacity">
+                    <p className="text-sm text-gray-500 truncate">{props.type.name}</p>
+                    <h3 className="text-lg font-semibold truncate">{props.title}</h3>
+                </Link>
+                <BuyButton price={props.price} productId={props.id} />
             </div>
         </div>
     );

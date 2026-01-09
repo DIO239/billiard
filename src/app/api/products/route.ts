@@ -8,9 +8,12 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const skip = Number(searchParams.get('skip') || 0);
   const take = Number(searchParams.get('take') || 20);
-  const search = searchParams.get('search') || undefined;
+  // Явно проверяем наличие параметра search - если его нет, не передаем в сервис
+  const searchParam = searchParams.get('search');
+  const search = searchParam && searchParam.trim() !== '' ? searchParam : undefined;
   const typeId = searchParams.get('typeId') ? Number(searchParams.get('typeId')) : undefined;
 
+  // Если search не передан явно, не используем его для фильтрации основного списка
   const products = await ProductService.list({ skip, take, search, typeId });
   return new Response(JSON.stringify({ products }), { status: 200 });
 }

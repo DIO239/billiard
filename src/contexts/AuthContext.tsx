@@ -37,11 +37,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const wasNotAuthenticated = user === null;
+
     try {
       const response = await axios.get('/api/auth/me');
-      setUser(response.data.user);
+      const newUser = response.data.user;
+      setUser(newUser);
       setLastFetch(now);
-    } catch (error) {
+      
+      // Если пользователь только что авторизовался (был null, стал объект) - сливаем корзины
+      // Но только если это не было сделано в login route
+      // Проверяем наличие cookie корзины - если она есть, значит слияние еще не произошло
+      if (wasNotAuthenticated && newUser !== null) {
+        try {
+          // Небольшая задержка, чтобы убедиться, что cookie обновились после логина
+          await new Promise(resolve => setTimeout(resolve, 200));
+          console.log('[AuthContext] Пытаемся выполнить слияние корзин после авторизации');
+          const mergeResponse = await axios.post('/api/cart/merge');
+          console.log('[AuthContext] Корзины успешно объединены:', mergeResponse.data);
+        } catch (error: any) {
+          // Игнорируем ошибки слияния корзин, чтобы не блокировать авторизацию
+          // Возможно, слияние уже произошло в login route (cookie уже удалена)
+          console.log('[AuthContext] Слияние корзин (возможно уже выполнено в login route):', error?.response?.data?.message || error?.message);
+        }
+      }
+    } catch (error: any) {
+      // 401 - это нормально для неавторизованных пользователей, не логируем как ошибку
+      if (error?.response?.status !== 401) {
+        console.error('Ошибка загрузки пользователя:', error);
+      }
       setUser(null);
       setLastFetch(now);
     } finally {
