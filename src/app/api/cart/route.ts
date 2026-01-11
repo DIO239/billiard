@@ -1,9 +1,6 @@
 import { CartService } from '@/services/cart.service';
 import { CookieService } from '@/services/cookie.service';
 import { getUserFromRequest } from '@/lib/auth';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]';
-import { prisma } from '@/services/prisma';
 import errorHandler from '@/app/api/_utils/error-handler';
 
 const CART_COOKIE = 'cart_session';
@@ -12,26 +9,10 @@ export const GET = errorHandler(async (req: Request) => {
   // Пытаемся получить пользователя из JWT или NextAuth сессии
   let userId: number | undefined = undefined;
   
-  // Сначала пробуем через JWT
+  // Получаем пользователя через JWT (работает и для обычной авторизации, и для NextAuth JWT)
   const jwtUser = getUserFromRequest(req);
   if (jwtUser) {
     userId = jwtUser.id;
-  } else {
-    // Если не нашли через JWT, пробуем через NextAuth
-    try {
-      const session = await getServerSession(authOptions);
-      if (session?.user?.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: session.user.email },
-          select: { id: true },
-        });
-        if (dbUser) {
-          userId = dbUser.id;
-        }
-      }
-    } catch (error) {
-      console.error('Ошибка получения NextAuth сессии:', error);
-    }
   }
 
   // Получаем sessionToken из cookie (для гостей)

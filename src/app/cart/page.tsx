@@ -174,7 +174,7 @@ export default function Cart() {
 
   if (loading) {
     return (
-      <div className='px-16 mt-30'>
+      <div>
         <div className="flex justify-center items-center min-h-[400px]">
           <Spinner className='size-8' />
         </div>
@@ -184,7 +184,7 @@ export default function Cart() {
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className='px-16 mt-30'>
+      <div>
         <h1 className='text-2xl font-semibold mb-6'>Ваша корзина</h1>
         <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
           <p className="text-gray-500 text-lg">Ваша корзина пуста</p>
@@ -197,7 +197,7 @@ export default function Cart() {
   }
 
   return (
-    <div className='px-16 mt-20'>
+    <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className='text-2xl font-semibold'>Ваша корзина</h1>
         {cart.items.length > 0 && (

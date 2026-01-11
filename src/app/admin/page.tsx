@@ -23,6 +23,7 @@ import { ProductDialog } from '@/components/shared/dialogs/ProductDialog';
 import { OrderDialog } from '@/components/shared/dialogs/OrderDialog';
 import { TypeDialog } from '@/components/shared/dialogs/TypeDialog';
 import { DeliveryMethodDialog } from '@/components/shared/dialogs/DeliveryMethodDialog';
+import { UserDialog } from '@/components/shared/dialogs/UserDialog';
 import { ConfirmDialog } from '@/components/shared/dialogs/ConfirmDialog';
 import { IType } from '@/types/types';
 import { IDeliveryMethod } from '@/types/delivery-method';
@@ -32,6 +33,7 @@ import { Order } from '@/types/order.d';
 import { Pencil, Trash2, ChevronDownIcon } from 'lucide-react';
 import React from 'react';
 import Link from 'next/link';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function Admin() {
   const [products, setProducts] = useState<ProductResponse[]>([]);
@@ -48,7 +50,12 @@ export default function Admin() {
   const [isDeliveryMethodDialogOpen, setIsDeliveryMethodDialogOpen] = useState(false);
   const [editingDeliveryMethod, setEditingDeliveryMethod] = useState<IDeliveryMethod | null>(null);
   const [deliveryMethods, setDeliveryMethods] = useState<IDeliveryMethod[]>([]);
+  const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
   const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set());
+  const [selectedProducts, setSelectedProducts] = useState<Set<number>>(new Set());
   
   // Фильтры для товаров
   const [sortBy, setSortBy] = useState<'title' | 'price' | 'count' | 'type' | 'visible'>('title');
@@ -87,6 +94,7 @@ export default function Admin() {
       loadTypes();
       loadOrders();
       loadDeliveryMethods();
+      loadUsers();
     }
   }, [isAuthenticated, isAdmin]);
 
@@ -108,12 +116,28 @@ export default function Admin() {
     }
   };
 
+  const loadUsers = async () => {
+    try {
+      setUsersLoading(true);
+      const response = await axios.get('/api/users');
+      setUsers(response.data);
+    } catch (error) {
+      console.error('Ошибка загрузки пользователей:', error);
+      toast.error('Не удалось загрузить пользователей');
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/products');
+      // Загружаем все товары (включая скрытые) для админ-панели
+      const response = await axios.get('/api/products?all=true');
       const validatedData = productsListResponseSchema.parse(response.data);
       setProducts(validatedData.products);
+      // Очищаем выбранные товары после загрузки
+      setSelectedProducts(new Set());
     } catch (error) {
       console.error('Ошибка загрузки продуктов:', error);
       toast.error('Не удалось загрузить продукты');
@@ -159,6 +183,75 @@ export default function Admin() {
       },
       variant: 'destructive',
     });
+  };
+
+  const handleDeleteSelectedProducts = () => {
+    if (selectedProducts.size === 0) {
+      toast.error('Выберите товары для удаления');
+      return;
+    }
+
+    const selectedCount = selectedProducts.size;
+    const productNames = Array.from(selectedProducts)
+      .map(id => {
+        const product = products.find(p => p.id === id);
+        return product?.title || `ID: ${id}`;
+      })
+      .slice(0, 3)
+      .join(', ');
+    const moreText = selectedCount > 3 ? ` и ещё ${selectedCount - 3}` : '';
+
+    setConfirmDialog({
+      open: true,
+      title: 'Массовое удаление товаров',
+      description: `Вы уверены, что хотите удалить ${selectedCount} ${selectedCount === 1 ? 'товар' : selectedCount < 5 ? 'товара' : 'товаров'} (${productNames}${moreText})? Это действие нельзя отменить.`,
+      onConfirm: async () => {
+        try {
+          const ids = Array.from(selectedProducts);
+          const response = await axios.post('/api/products/delete-many', ids);
+          const deletedCount = response.data.count || 0;
+          toast.success(`Удалено товаров: ${deletedCount}`);
+          setSelectedProducts(new Set());
+          await loadProducts();
+        } catch (error: any) {
+          toast.error(error.response?.data?.error || 'Не удалось удалить товары');
+        }
+      },
+      variant: 'destructive',
+    });
+  };
+
+  const handleToggleProductSelection = (id: number) => {
+    setSelectedProducts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const handleToggleAllProducts = () => {
+    const filteredProducts = getFilteredAndSortedProducts();
+    const allSelected = filteredProducts.every(p => selectedProducts.has(p.id));
+    
+    if (allSelected) {
+      // Снимаем выбор со всех отфильтрованных товаров
+      setSelectedProducts(prev => {
+        const newSet = new Set(prev);
+        filteredProducts.forEach(p => newSet.delete(p.id));
+        return newSet;
+      });
+    } else {
+      // Выбираем все отфильтрованные товары
+      setSelectedProducts(prev => {
+        const newSet = new Set(prev);
+        filteredProducts.forEach(p => newSet.add(p.id));
+        return newSet;
+      });
+    }
   };
 
   const handleDeleteOrder = (id: number) => {
@@ -247,6 +340,37 @@ export default function Admin() {
   const handleDeliveryMethodDialogClose = (open: boolean) => {
     setIsDeliveryMethodDialogOpen(open);
     if (!open) setEditingDeliveryMethod(null);
+  };
+
+  const handleEditUser = (user: any) => {
+    setEditingUser(user);
+    setIsUserDialogOpen(true);
+  };
+
+  const handleDeleteUser = (id: number) => {
+    const user = users.find(u => u.id === id);
+    const userName = user ? `"${user.fullName}" (${user.email})` : 'пользователя';
+    
+    setConfirmDialog({
+      open: true,
+      title: 'Удаление пользователя',
+      description: `Вы уверены, что хотите удалить пользователя ${userName}? Это действие нельзя отменить.`,
+      onConfirm: async () => {
+        try {
+          await axios.delete(`/api/users/${id}`);
+          toast.success('Пользователь удалён');
+          await loadUsers();
+        } catch (error: any) {
+          toast.error(error.response?.data?.error || 'Не удалось удалить пользователя');
+        }
+      },
+      variant: 'destructive',
+    });
+  };
+
+  const handleUserDialogClose = (open: boolean) => {
+    setIsUserDialogOpen(open);
+    if (!open) setEditingUser(null);
   };
 
   const handleOrderDialogClose = (open: boolean) => {
@@ -366,7 +490,15 @@ export default function Admin() {
   }
 
   return (
-    <div className='px-16 mt-8'>
+    <div>
+      <div className="mb-6 flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Админ-панель</h1>
+        <Link href="/api-docs">
+          <Button variant="outline">
+            API Документация
+          </Button>
+        </Link>
+      </div>
       <Accordion type="multiple">
         {/* Типы товаров */}
         <AccordionItem value="item-3">
@@ -512,6 +644,14 @@ export default function Admin() {
                 }}>
                   Добавить товар
                 </Button>
+                {selectedProducts.size > 0 && (
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleDeleteSelectedProducts}
+                  >
+                    Удалить выбранные ({selectedProducts.size})
+                  </Button>
+                )}
               </div>
               <ProductDialog
                 open={isDialogOpen}
@@ -722,6 +862,16 @@ export default function Admin() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={(() => {
+                          const filteredProducts = getFilteredAndSortedProducts();
+                          return filteredProducts.length > 0 && filteredProducts.every(p => selectedProducts.has(p.id));
+                        })()}
+                        onCheckedChange={handleToggleAllProducts}
+                        aria-label="Выбрать все товары"
+                      />
+                    </TableHead>
                     <TableHead>ID</TableHead>
                     <TableHead>Название</TableHead>
                     <TableHead>Описание</TableHead>
@@ -738,7 +888,7 @@ export default function Admin() {
                     if (filteredProducts.length === 0) {
                       return (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center text-gray-500">
+                          <TableCell colSpan={9} className="text-center text-gray-500">
                             {products.length === 0 ? 'Нет товаров' : 'Товары не найдены по заданным фильтрам'}
                           </TableCell>
                         </TableRow>
@@ -746,8 +896,16 @@ export default function Admin() {
                     }
                     return filteredProducts.map((product) => {
                       const validatedProduct = productResponseSchema.parse(product);
+                      const isSelected = selectedProducts.has(validatedProduct.id);
                       return (
-                        <TableRow key={validatedProduct.id}>
+                        <TableRow key={validatedProduct.id} className={isSelected ? 'bg-muted/50' : ''}>
+                          <TableCell>
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => handleToggleProductSelection(validatedProduct.id)}
+                              aria-label={`Выбрать товар ${validatedProduct.title}`}
+                            />
+                          </TableCell>
                           <TableCell>{validatedProduct.id}</TableCell>
                           <TableCell className="font-medium">
                             <Link href={`/product/${validatedProduct.id}`}>{validatedProduct.title}</Link>
@@ -966,6 +1124,100 @@ export default function Admin() {
                   )}
                 </TableBody>
               </Table>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Пользователи */}
+        <AccordionItem value="item-5">
+          <AccordionTrigger>
+            <h1 className='text-2xl font-bold'>Пользователи</h1>
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className='flex flex-col gap-4'>
+              {usersLoading ? (
+                <div className="flex justify-center items-center py-8">
+                  <Spinner className='size-8' />
+                </div>
+              ) : (
+                <>
+                  <div className='flex justify-between items-center'>
+                    <Button onClick={() => {
+                      setEditingUser(null);
+                      setIsUserDialogOpen(true);
+                    }}>
+                      Добавить пользователя
+                    </Button>
+                  </div>
+                  <UserDialog
+                    open={isUserDialogOpen}
+                    onOpenChange={handleUserDialogClose}
+                    user={editingUser}
+                    onSuccess={loadUsers}
+                  />
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Имя</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Роль</TableHead>
+                        <TableHead>Провайдер</TableHead>
+                        <TableHead>Подтверждён</TableHead>
+                        <TableHead>Дата регистрации</TableHead>
+                        <TableHead>Действия</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-gray-500">
+                            Нет пользователей
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        users.map((user) => (
+                          <TableRow key={user.id}>
+                            <TableCell>{user.id}</TableCell>
+                            <TableCell>{user.fullName}</TableCell>
+                            <TableCell>{user.email}</TableCell>
+                            <TableCell>
+                              <Badge variant={user.role === 'ADMIN' ? 'default' : 'secondary'}>
+                                {user.role === 'ADMIN' ? 'Администратор' : 'Пользователь'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{user.provider || '-'}</TableCell>
+                            <TableCell>
+                              {user.verified ? (
+                                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                                  Да
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300">
+                                  Нет
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {user.createdAt && new Date(user.createdAt).toLocaleString('ru-RU')}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="icon" onClick={() => handleEditUser(user)} title="Редактировать">
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button variant="destructive" size="icon" onClick={() => handleDeleteUser(user.id)} title="Удалить">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </>
+              )}
             </div>
           </AccordionContent>
         </AccordionItem>

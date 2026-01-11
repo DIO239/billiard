@@ -1,4 +1,9 @@
 import { UserService } from '@/services/user.service';
+import { addCorsHeaders, handleOptionsRequest } from '@/app/api/_utils/cors';
+
+export async function OPTIONS(req: Request) {
+  return handleOptionsRequest(req);
+}
 
 export async function POST(req: Request) {
   try {
@@ -10,8 +15,10 @@ export async function POST(req: Request) {
     if (!verified) {
       return new Response(JSON.stringify({ error: 'Пользователь или код не найден, либо код неверный' }), { status: 400 });
     }
-    return new Response(JSON.stringify({ message: 'Email успешно подтверждён!' }), { status: 200 });
+    const response = new Response(JSON.stringify({ message: 'Email успешно подтверждён!' }), { status: 200 });
+    return addCorsHeaders(response, req);
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Ошибка подтверждения' }), { status: 500 });
+    const response = new Response(JSON.stringify({ error: 'Ошибка подтверждения' }), { status: 500 });
+    return addCorsHeaders(response, req);
   }
 }

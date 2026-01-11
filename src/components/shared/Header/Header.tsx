@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useLayoutEffect } from 'react';
 import Image from 'next/image';
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
@@ -21,8 +21,21 @@ export default function Header() {
     const [loading, setLoading] = useState(false);
     const [searched, setSearched] = useState(false);
     const [cartCount, setCartCount] = useState(0);
+    const [isScrolled, setIsScrolled] = useState(false);
+    const [mounted, setMounted] = useState(false);
+    const [isNotFoundPage, setIsNotFoundPage] = useState(false);
     const { isAuthenticated, isLoading, isAdmin, logout, user } = useAuth();
     const pathname = usePathname();
+
+    // Отслеживаем прокрутку страницы
+    useEffect(() => {
+        const handleScroll = () => {
+            setIsScrolled(window.scrollY > 10);
+        };
+
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
     useEffect(() => {
         if (!search) {
@@ -54,10 +67,8 @@ export default function Header() {
         try {
             const response = await axios.get('/api/cart');
             const itemsCount = response.data?.items?.length || 0;
-            console.log('Cart count loaded:', itemsCount, response.data);
             setCartCount(itemsCount);
         } catch (error: any) {
-            console.error('Error loading cart count:', error);
             // Игнорируем ошибки загрузки корзины
             setCartCount(0);
         }
@@ -86,18 +97,101 @@ export default function Header() {
         window.addEventListener('cartUpdated', handleCartUpdate);
         return () => window.removeEventListener('cartUpdated', handleCartUpdate);
     }, [loadCartCount]);
-    const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/admin';
+
+    // Устанавливаем mounted после монтирования (избегаем hydration mismatch)
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // Список страниц, где показывается только логотип
+    const pagesWithLogoOnly = useMemo(() => ['/admin', '/api-docs', '/login', '/register'], []);
+    
+    // Удаляем флаг data-not-found при переходе на валидную страницу
+    useLayoutEffect(() => {
+        if (mounted && pathname && !isNotFoundPage) {
+            document.body.removeAttribute('data-not-found');
+        }
+    }, [pathname, mounted, isNotFoundPage]);
+    
+    // Проверяем флаг data-not-found только на клиенте (после монтирования)
+    useEffect(() => {
+        if (mounted) {
+            const checkNotFound = () => {
+                const notFoundFlag = document.body.getAttribute('data-not-found') === 'true';
+                setIsNotFoundPage(notFoundFlag);
+            };
+            
+            checkNotFound();
+            
+            // Наблюдаем за изменениями атрибута
+            const observer = new MutationObserver(checkNotFound);
+            observer.observe(document.body, { attributes: true, attributeFilter: ['data-not-found'] });
+            
+            return () => observer.disconnect();
+        }
+    }, [mounted]);
+    
+    // Определяем, нужно ли показывать только логотип
+    // Используем только pathname, чтобы избежать hydration mismatch
+    const showOnlyLogo = useMemo(() => {
+        if (!pathname) {
+            return false;
+        }
+        // Проверяем, входит ли текущая страница в список страниц с только лого
+        // Это можно определить без mounted, так как pathname доступен на сервере
+        return pagesWithLogoOnly.includes(pathname);
+    }, [pathname, pagesWithLogoOnly]);
+    
+    // Отдельное состояние для 404 страниц (только на клиенте)
+    const [showOnlyLogoFor404, setShowOnlyLogoFor404] = useState(false);
+    
+    useEffect(() => {
+        // Проверяем флаг 404 только на клиенте после монтирования
+        if (mounted && isNotFoundPage) {
+            setShowOnlyLogoFor404(true);
+        } else {
+            setShowOnlyLogoFor404(false);
+        }
+    }, [mounted, isNotFoundPage]);
+    
+    // Определяем, нужно ли показывать Header
+    // Используем только значения, доступные на сервере, чтобы избежать hydration mismatch
+    const shouldShowHeader = useMemo(() => {
+        // Если это страница с только лого (определяется по pathname) - показываем Header
+        if (showOnlyLogo) {
+            return true;
+        }
+        
+        // Для 404 страниц проверяем только на клиенте (после монтирования)
+        // Но это не должно влиять на рендеринг для страниц из pagesWithLogoOnly
+        if (showOnlyLogoFor404) {
+            return true;
+        }
+        
+        // Если pathname существует - показываем полный Header
+        return !!pathname;
+    }, [pathname, showOnlyLogo, showOnlyLogoFor404]);
+    
     const isUserPage = pathname === '/user';
+    
+    // Скрываем Header полностью, если не нужно показывать
+    if (!shouldShowHeader) {
+        return null;
+    }
 
     return (
-        <header className='w-full pt-4 px-5'>
+        <header className={`w-full pt-4 px-16 fixed top-0 left-0 right-0 z-[9999] transition-all duration-300 ${
+            isScrolled 
+                ? 'bg-white/80 backdrop-blur-lg backdrop-saturate-150' 
+                : 'bg-transparent'
+        }`} style={{ position: 'fixed' }}>
             <div className='flex gap-9'>
                    <div className='h-fit'>
                        <Link href="/">
                            <Image priority src="/logos/floyd.png" alt="logo" width={80} height={94} className='object-contain object-top cursor-pointer' />
                        </Link>
                    </div>
-                   {!isAuthPage && (
+                   {!showOnlyLogo && !showOnlyLogoFor404 && (
                    <div className='relative mt-3'>
                     <div className='relative w-90 h-10'>
                         <Input className={
@@ -128,7 +222,7 @@ export default function Header() {
                     )}
                    </div>
                    )}
-                   {!isAuthPage && (
+                   {!showOnlyLogo && !showOnlyLogoFor404 && (
                    <div className='flex gap-5 mt-3 items-start'>
                     <div className='
                     bg-black 
@@ -172,7 +266,7 @@ export default function Header() {
                     </div>
                    </div>
                    )}
-                   {!isAuthPage && (
+                   {!showOnlyLogo && !showOnlyLogoFor404 && (
                    <div className='flex gap-5 mt-4 items-start gap-6'>
                     <div className='flex justify-center items-center gap-2'>
                         <FaPhoneAlt size={28}/>
@@ -184,8 +278,8 @@ export default function Header() {
                     </div>
                    </div>
                    )}
-                   {!isAuthPage && (
-                   <div className='mt-3 relative w-15'>
+                   {!showOnlyLogo && !showOnlyLogoFor404 && (
+                   <div className='mt-3 relative w-15 ml-auto'>
                     <Link href="/cart" onClick={() => loadCartCount()}>
                         <div className='bg-[#5F0707D9] rounded-full w-10 h-10 flex justify-center items-center cursor-pointer relative'>
                             <FaShoppingCart className='text-white' size={22}/>
@@ -198,7 +292,7 @@ export default function Header() {
                     </Link>
                    </div>
                    )}
-                   {!isLoading && !isAuthPage && (
+                   {/* {!isLoading && !showOnlyLogo && (
                    <div className='mt-3 flex gap-3 ml-auto'>
                     {isAuthenticated ? (
                         <div className='flex gap-3'>
@@ -230,7 +324,7 @@ export default function Header() {
                         </Link>
                     )}
                    </div>
-                   )}
+                   )} */}
             </div>
         </header>
     );

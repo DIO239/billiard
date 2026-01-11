@@ -18,9 +18,20 @@ export type JwtUserPayload = { id: number; email: string; role?: string } | null
 
 export function getUserFromRequest(req: Request): JwtUserPayload {
   try {
-    const cookies = parseCookies(req.headers.get('cookie'));
-    const token = cookies[COOKIE_NAME];
+    // Сначала пробуем получить токен из заголовка Authorization (для внешних клиентов)
+    const authHeader = req.headers.get('authorization');
+    let token: string | null = null;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else {
+      // Если нет в заголовке, пробуем из cookies (для веб-клиентов)
+      const cookies = parseCookies(req.headers.get('cookie'));
+      token = cookies[COOKIE_NAME];
+    }
+    
     if (!token) return null;
+    
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     // Убеждаемся, что id - это число
     const userId = typeof decoded.id === 'string' ? parseInt(decoded.id, 10) : decoded.id;

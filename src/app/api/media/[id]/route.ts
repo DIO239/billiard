@@ -43,14 +43,19 @@ export const DELETE = errorHandler(async (req: Request, { params }: { params: { 
     const { existsSync } = await import('fs');
     
     // Преобразуем URL в путь к файлу
-    const filePath = join(process.cwd(), 'public', media.name);
+    // /static/products/123/file.jpg -> public/static/products/123/file.jpg
+    const normalizedPath = media.name.startsWith('/') ? media.name.substring(1) : media.name;
+    const filePath = join(process.cwd(), 'public', normalizedPath);
     if (existsSync(filePath)) {
       try {
         await unlink(filePath);
+        console.log(`Файл успешно удален: ${filePath}`);
       } catch (error) {
         console.error(`Ошибка удаления файла ${filePath}:`, error);
         // Продолжаем удаление из БД даже если файл не найден
       }
+    } else {
+      console.warn(`Файл не найден: ${filePath}`);
     }
   }
   

@@ -3,10 +3,15 @@ import { CartService } from '@/services/cart.service';
 import { CookieService } from '@/services/cookie.service';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { addCorsHeaders, handleOptionsRequest } from '@/app/api/_utils/cors';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret';
 const COOKIE_NAME = 'token';
 const CART_COOKIE = 'cart_session';
+
+export async function OPTIONS(req: Request) {
+  return handleOptionsRequest(req);
+}
 
 export async function POST(req: Request) {
   try {
@@ -59,6 +64,7 @@ export async function POST(req: Request) {
     // Устанавливаем httpOnly cookie
     const response = new Response(JSON.stringify({ 
       message: 'Успешный вход',
+      token, // Возвращаем токен в теле ответа для внешних клиентов (Telegram бот и т.д.)
       cart: mergedCart // Возвращаем объединенную корзину
     }), { status: 200 });
     response.headers.append('Set-Cookie', `${COOKIE_NAME}=${token}; HttpOnly; Path=/; Max-Age=604800; SameSite=Strict; Secure`);
@@ -70,8 +76,9 @@ export async function POST(req: Request) {
       response.headers.append('Set-Cookie', `${CART_COOKIE}=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict; Secure`);
     }
     
-    return response;
+    return addCorsHeaders(response, req);
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Ошибка авторизации' }), { status: 500 });
+    const errorResponse = new Response(JSON.stringify({ error: 'Ошибка авторизации' }), { status: 500 });
+    return addCorsHeaders(errorResponse, req);
   }
 }

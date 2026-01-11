@@ -7,8 +7,6 @@ import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
 import BuyButton from "@/components/ui/buyButton";
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Thumbs, Zoom } from 'swiper/modules';
@@ -19,12 +17,9 @@ import 'swiper/css/zoom';
 export default function Product() {
     const params = useParams();
     const router = useRouter();
-    const { user } = useAuth();
     const [product, setProduct] = useState<IProduct | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-    const [addingToCart, setAddingToCart] = useState(false);
     const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
 
     useEffect(() => {
@@ -41,9 +36,10 @@ export default function Product() {
             const response = await axios.get<IProduct>(`/api/products/${id}`);
             setProduct(response.data);
           } catch (err: any) {
-            console.error('Ошибка загрузки продукта:', err);
             if (err.response?.status === 404) {
-              setError('Продукт не найден');
+              // Для 404 используем сообщение из API или стандартное
+              const errorMessage = err.response?.data?.error || 'Продукт не найден';
+              setError(errorMessage);
             } else {
               setError('Не удалось загрузить продукт');
             }
@@ -55,27 +51,6 @@ export default function Product() {
         loadProduct();
       }, [params.id]);
 
-    const handleAddToCart = async () => {
-        if (addingToCart || !product) return;
-
-        try {
-            setAddingToCart(true);
-            await axios.post('/api/cart/add', {
-                productId: product.id,
-                quantity: 1,
-                ...(user?.id && { userId: user.id }),
-            });
-            toast.success('Товар добавлен в корзину');
-            window.dispatchEvent(new Event('cartUpdated'));
-        } catch (error: any) {
-            console.error('Ошибка добавления в корзину:', error);
-            const errorMessage = error.response?.data?.error || 'Не удалось добавить товар в корзину';
-            toast.error(errorMessage);
-        } finally {
-            setAddingToCart(false);
-        }
-    };
-
     if (loading) {
         return (
           <div className="flex justify-center items-center min-h-screen">
@@ -85,10 +60,13 @@ export default function Product() {
     }
     
     if (error || !product) {
+        // Определяем, является ли это ошибкой 404
+        const isNotFound = error === 'Продукт не найден' || error?.includes('не найден');
+        
         return (
           <div className="container mx-auto px-4 py-16">
             <div className="max-w-2xl mx-auto text-center">
-              <h1 className="text-2xl font-bold mb-4">Ошибка</h1>
+              <h1 className="text-2xl font-bold mb-4">{isNotFound ? 'Продукт не найден' : 'Ошибка'}</h1>
               <p className="text-gray-600 mb-6">{error || 'Продукт не найден'}</p>
               <Button onClick={() => router.push('/')}>Вернуться на главную</Button>
             </div>
@@ -107,7 +85,7 @@ export default function Product() {
     const characteristicFields = product.type?.characteristicFields || [];
 
     return(
-        <div className='px-16 py-8'>
+        <div className='py-8'>
             <div className="flex gap-8">
                 {/* Левая колонка - Галерея */}
                 <div className="flex gap-4">
@@ -166,7 +144,6 @@ export default function Product() {
                                 direction="vertical"
                                 className="w-full h-full"
                                 loop={sortedMedia.length > 1}
-                                onSlideChange={(swiper) => setSelectedImageIndex(swiper.realIndex)}
                             >
                                 {sortedMedia.map((media, index) => (
                                     <SwiperSlide key={media.id}>

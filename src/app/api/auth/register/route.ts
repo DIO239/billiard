@@ -1,6 +1,11 @@
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
 import { UserService } from '@/services/user.service';
+import { addCorsHeaders, handleOptionsRequest } from '@/app/api/_utils/cors';
+
+export async function OPTIONS(req: Request) {
+  return handleOptionsRequest(req);
+}
 
 export async function POST(req: Request) {
   try {
@@ -40,9 +45,11 @@ export async function POST(req: Request) {
       text: `Ваш код подтверждения: ${code}`,
       html: `<b>Ваш код подтверждения: ${code}</b>`,
     });
-    return new Response(JSON.stringify({ message: 'Пользователь зарегистрирован. Проверьте почту для подтверждения.' }), { status: 201 });
+    const response = new Response(JSON.stringify({ message: 'Пользователь зарегистрирован. Проверьте почту для подтверждения.' }), { status: 201 });
+    return addCorsHeaders(response, req);
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Ошибка регистрации' }), { status: 500 });
+    const response = new Response(JSON.stringify({ error: 'Ошибка регистрации' }), { status: 500 });
+    return addCorsHeaders(response, req);
   }
 }
 

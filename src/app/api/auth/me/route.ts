@@ -1,37 +1,19 @@
 import { getUserFromRequest } from '@/lib/auth';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]';
-import { prisma } from '@/services/prisma';
+import { addCorsHeaders, handleOptionsRequest } from '@/app/api/_utils/cors';
 
 export async function GET(req: Request) {
-  // Сначала пробуем получить пользователя через JWT (обычная авторизация)
-  let user = getUserFromRequest(req);
-  
-  // Если не нашли через JWT, пробуем через NextAuth
-  if (!user) {
-    try {
-      const session = await getServerSession(authOptions);
-      if (session?.user?.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: session.user.email },
-          select: { id: true, email: true, role: true },
-        });
-        if (dbUser) {
-          user = {
-            id: dbUser.id,
-            email: dbUser.email,
-            role: dbUser.role || undefined,
-          };
-        }
-      }
-    } catch (error) {
-      console.error('Ошибка получения NextAuth сессии:', error);
-    }
+  if (req.method === 'OPTIONS') {
+    return handleOptionsRequest(req);
   }
   
+  // Получаем пользователя через JWT (работает и для обычной авторизации, и для NextAuth JWT)
+  const user = getUserFromRequest(req);
+  
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Не авторизован' }), { status: 401 });
+    const response = new Response(JSON.stringify({ error: 'Не авторизован' }), { status: 401 });
+    return addCorsHeaders(response, req);
   }
   
-  return new Response(JSON.stringify({ user }), { status: 200 });
+  const response = new Response(JSON.stringify({ user }), { status: 200 });
+  return addCorsHeaders(response, req);
 }

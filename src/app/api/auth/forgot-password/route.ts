@@ -1,8 +1,13 @@
 import { UserService } from '@/services/user.service';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
+import { addCorsHeaders, handleOptionsRequest } from '@/app/api/_utils/cors';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+export async function OPTIONS(req: Request) {
+  return handleOptionsRequest(req);
+}
 
 export async function POST(req: Request) {
   try {
@@ -37,9 +42,11 @@ export async function POST(req: Request) {
       text: `Перейдите по ссылке для сброса пароля: ${resetUrl}`,
       html: `<b>Перейдите по <a href='${resetUrl}'>ссылке</a> для сброса пароля</b>`,
     });
-    return new Response(JSON.stringify({ message: 'Если такой email зарегистрирован — инструкция отправлена.' }), { status: 200 });
+    const response = new Response(JSON.stringify({ message: 'Если такой email зарегистрирован — инструкция отправлена.' }), { status: 200 });
+    return addCorsHeaders(response, req);
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Не удалось отправить ссылку для восстановления пароля' }), { status: 500 });
+    const response = new Response(JSON.stringify({ error: 'Не удалось отправить ссылку для восстановления пароля' }), { status: 500 });
+    return addCorsHeaders(response, req);
   }
 }
 

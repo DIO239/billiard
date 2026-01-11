@@ -8,6 +8,20 @@ export class MediaService {
     });
   }
 
+  static async listByProductIds(productIds: number[]) {
+    if (!productIds || productIds.length === 0) {
+      return [];
+    }
+    return prisma.media.findMany({
+      where: {
+        productId: {
+          in: productIds,
+        },
+      },
+      orderBy: { id: 'desc' },
+    });
+  }
+
   static async getById(id: number) {
     return prisma.media.findUnique({ where: { id } });
   }

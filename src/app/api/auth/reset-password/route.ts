@@ -1,5 +1,10 @@
 import { UserService } from '@/services/user.service';
 import bcrypt from 'bcryptjs';
+import { addCorsHeaders, handleOptionsRequest } from '@/app/api/_utils/cors';
+
+export async function OPTIONS(req: Request) {
+  return handleOptionsRequest(req);
+}
 
 export async function POST(req: Request) {
   try {
@@ -16,9 +21,11 @@ export async function POST(req: Request) {
     const hashedPassword = await bcrypt.hash(password, 10);
     // Сохраняем новый пароль и обнуляем токен
     await UserService.updatePasswordAndClearToken(user.id, hashedPassword);
-    return new Response(JSON.stringify({ message: 'Пароль успешно сброшен' }), { status: 200 });
+    const response = new Response(JSON.stringify({ message: 'Пароль успешно сброшен' }), { status: 200 });
+    return addCorsHeaders(response, req);
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Ошибка сброса пароля' }), { status: 500 });
+    const response = new Response(JSON.stringify({ error: 'Ошибка сброса пароля' }), { status: 500 });
+    return addCorsHeaders(response, req);
   }
 }
 

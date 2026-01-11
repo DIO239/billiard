@@ -29,7 +29,7 @@ export default function Login() {
         },
     });
     return (
-        <div className="flex justify-center items-center px-16 mt-30">
+        <div className="flex justify-center items-center min-h-[calc(100vh-160px)] -mx-16 -mt-40 -mb-20">
             <Card className="w-full max-w-2xl">
                 <CardHeader>
                     <CardTitle>

@@ -461,8 +461,13 @@ export function ProductDialog({ open, onOpenChange, product, types, onSuccess }:
                 <FormItem>
                   <FormLabel>Тип товара</FormLabel>
                   <Select 
-                    onValueChange={(value) => field.onChange(parseInt(value))} 
-                    value={field.value && field.value > 0 ? field.value.toString() : undefined}
+                    value={typeof field.value === 'number' && field.value > 0 ? field.value.toString() : undefined}
+                    onValueChange={(value) => {
+                      const numValue = parseInt(value, 10);
+                      if (!isNaN(numValue) && numValue > 0) {
+                        field.onChange(numValue);
+                      }
+                    }}
                   >
                     <FormControl>
                       <SelectTrigger>
